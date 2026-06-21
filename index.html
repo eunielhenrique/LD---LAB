@@ -285,6 +285,11 @@ h1,h2,h3,h4{font-family:var(--fd);font-weight:700;line-height:1.04;letter-spacin
 .pcard h3{font-family:var(--fd);font-weight:800;font-size:26px;text-transform:uppercase;color:var(--white);margin-top:16px;letter-spacing:.02em;}
 .pcard .pmeta-row{display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line);font-size:14px;}
 .pcard .pmeta-row:last-child{border-bottom:none;}
+.ep-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:900;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;}
+.ep-overlay.open{display:flex;}
+.ep-form{max-width:420px;width:100%;background:var(--navy-mid);border:1px solid var(--line);border-radius:13px;padding:28px;position:relative;}
+.ep-form h4{font-family:var(--fd);font-weight:800;font-size:20px;text-transform:uppercase;color:var(--white);margin:0 0 22px;letter-spacing:.03em;}
+.ep-close{position:absolute;top:14px;right:18px;background:none;border:none;color:var(--g400);font-size:26px;cursor:pointer;line-height:1;padding:0;}
 .pcard .pmeta-row .k{color:var(--g400);}
 .pcard .pmeta-row .v{color:var(--g100);font-weight:500;}
 .donut-wrap{display:flex;align-items:center;gap:28px;}
@@ -912,7 +917,10 @@ window.LD_saveProgress = async function () {
     const cst = A.status(cont.slug);
 
     const completed = M().filter((m) => A.status(m.slug).status === "completed").length;
-    const apostilasLidas = 12, horas = "8h 30min";
+    const apostilasLidas = Object.values(window.LD_PROGRESS || {}).filter(p => (p.read || []).length > 0).length;
+    const _secs = Object.values(window.LD_PROGRESS || {}).reduce((t, p) => t + (p.read || []).length, 0);
+    const _hMin = _secs * 10;
+    const horas = _secs === 0 ? '—' : _hMin < 60 ? _hMin + 'min' : Math.floor(_hMin/60) + 'h' + (_hMin%60 ? ' ' + _hMin%60 + 'min' : '');
 
     const grid = M().slice(0, 6).map(A.moduleCard).join("");
 
@@ -1209,6 +1217,18 @@ window.LD_saveProgress = async function () {
     }).join("");
 
     const html = `${A.sidebar("perfil")}
+    <div id="epOverlay" class="ep-overlay">
+      <div class="ep-form">
+        <button class="ep-close" id="epClose">×</button>
+        <h4>Editar Perfil</h4>
+        <div class="field"><label>Nome completo</label><input type="text" id="ep-nome" placeholder="Seu nome completo"></div>
+        <div class="field"><label>Município</label><input type="text" id="ep-mun" placeholder="Sua cidade"></div>
+        <div class="field"><label>Cargo</label><input type="text" id="ep-cargo" placeholder="Ex: GCM, Inspetor, Gestor..."></div>
+        <div class="field"><label>WhatsApp</label><input type="tel" id="ep-wpp" placeholder="(00) 00000-0000"></div>
+        <div id="ep-err" style="color:var(--danger);font-size:13px;margin-bottom:12px;display:none"></div>
+        <button class="btn btn-primary" id="ep-save" style="width:100%;justify-content:center">Salvar alterações <span class="chev">→</span></button>
+      </div>
+    </div>
     <main class="main">${A.drawerToggle()}
       <div class="page">
         <div class="page-head"><div class="page-title">Meu Perfil</div><div class="sub">Acompanhe seu progresso no curso</div></div>
@@ -1218,10 +1238,12 @@ window.LD_saveProgress = async function () {
             <h3>${s.name}</h3>
             <div style="margin-top:18px">
               <div class="pmeta-row"><span class="k">Matrícula</span><span class="v">${s.matricula}</span></div>
-              <div class="pmeta-row"><span class="k">Município</span><span class="v">${s.municipio}</span></div>
+              ${s.cargo ? `<div class="pmeta-row"><span class="k">Cargo</span><span class="v">${s.cargo}</span></div>` : ""}
+              <div class="pmeta-row"><span class="k">Município</span><span class="v">${s.municipio || '—'}</span></div>
               <div class="pmeta-row"><span class="k">Membro desde</span><span class="v">${s.membroDesde}</span></div>
               <div class="pmeta-row"><span class="k">Status</span><span class="v" style="color:var(--cyan)">Aluno ativo</span></div>
             </div>
+            <button class="btn btn-outline btn-sm" id="editBtn" style="margin-top:22px;width:100%;justify-content:center">Editar perfil ✎</button>
           </div>
           <div class="pcard">
             <span class="label">Progresso geral do curso</span>
@@ -1244,7 +1266,43 @@ window.LD_saveProgress = async function () {
         <div class="pcard"><div class="hist">${hist}</div></div>
       </div>
     </main>`;
-    return { html };
+    return { html, init: () => {
+      const overlay = document.getElementById("epOverlay");
+      document.getElementById("editBtn").addEventListener("click", () => {
+        const st = window.LD_STUDENT;
+        document.getElementById("ep-nome").value  = st.name      || "";
+        document.getElementById("ep-mun").value   = st.municipio || "";
+        document.getElementById("ep-cargo").value = st.cargo     || "";
+        document.getElementById("ep-wpp").value   = st.whatsapp  || "";
+        document.getElementById("ep-err").style.display = "none";
+        overlay.classList.add("open");
+      });
+      document.getElementById("epClose").addEventListener("click", () => overlay.classList.remove("open"));
+      overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.classList.remove("open"); });
+      document.getElementById("ep-save").addEventListener("click", async () => {
+        const btn   = document.getElementById("ep-save");
+        const errEl = document.getElementById("ep-err");
+        const nome      = document.getElementById("ep-nome").value.trim();
+        const municipio = document.getElementById("ep-mun").value.trim();
+        const cargo     = document.getElementById("ep-cargo").value.trim();
+        const whatsapp  = document.getElementById("ep-wpp").value.trim();
+        if (!nome) { errEl.textContent = "Nome é obrigatório"; errEl.style.display = "block"; return; }
+        errEl.style.display = "none";
+        btn.innerHTML = "Salvando…";
+        btn.disabled  = true;
+        const { error } = await window.SB.auth.updateUser({ data: { nome, municipio, cargo, whatsapp } });
+        if (error) {
+          errEl.textContent = "Erro ao salvar: " + error.message;
+          errEl.style.display = "block";
+          btn.innerHTML = "Salvar alterações <span class='chev'>→</span>";
+          btn.disabled  = false;
+          return;
+        }
+        window.LD_STUDENT = { ...window.LD_STUDENT, name: nome, municipio, cargo, whatsapp };
+        overlay.classList.remove("open");
+        window.LDRender && window.LDRender();
+      });
+    }};
   };
 })();
 
@@ -1281,6 +1339,8 @@ window.LD_saveProgress = async function () {
     }
   }
 
+  window.LDRender = render;
+
   // Carrega progresso do Supabase e preenche LD_STUDENT a partir da sessão
   async function loadUserData(session) {
     const meta = session.user.user_metadata || {};
@@ -1291,7 +1351,9 @@ window.LD_saveProgress = async function () {
     window.LD_STUDENT = {
       name:        nome,
       matricula:   session.user.email,
-      municipio:   meta.municipio || "",
+      municipio:   meta.municipio  || "",
+      cargo:       meta.cargo      || "",
+      whatsapp:    meta.whatsapp   || "",
       membroDesde: init,
     };
 
