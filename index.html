@@ -2,8 +2,15 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>LD Tático Jurídico · Plataforma de Apostilas</title>
+<link rel="manifest" href="/manifest.json" />
+<meta name="theme-color" content="#0A0F1C" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="LD LAB" />
+<link rel="apple-touch-icon" href="/icons/icon.svg" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -353,11 +360,42 @@ h1,h2,h3,h4{font-family:var(--fd);font-weight:700;line-height:1.04;letter-spacin
 .scrim-drawer{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:75;}
 .scrim-drawer.show{display:block;}
 
+/* ===== PWA / mobile-nav ===== */
+body{overscroll-behavior:none;}
+button,a{touch-action:manipulation;}
+.mobile-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--navy-mid);border-top:1px solid var(--line);z-index:60;padding-bottom:env(safe-area-inset-bottom,0);}
+.mobile-nav .mn-row{display:flex;}
+.mn-item{flex:1;display:flex;flex-direction:column;align-items:center;padding:10px 0;color:var(--g400);text-decoration:none;gap:3px;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;transition:color .15s;}
+.mn-item svg{width:22px;height:22px;stroke-width:1.8;}
+.mn-item.active,.mn-item:hover{color:var(--cyan);}
+body:not(.is-app) .mobile-nav{display:none!important;}
+@media(max-width:860px){
+  .mobile-nav{display:block;}
+  .page{padding-bottom:calc(80px + env(safe-area-inset-bottom,0));}
+  .sidebar{height:100dvh;}
+}
+
 </style>
 </head>
 <body>
 <div class="hexfield"></div>
 <div id="root"></div>
+<nav class="mobile-nav" id="mobileNav" aria-label="Navegação">
+  <div class="mn-row">
+    <a href="#/dashboard" class="mn-item" data-screen="dashboard">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      <span>Início</span>
+    </a>
+    <a href="#/modulos" class="mn-item" data-screen="modulos">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+      <span>Módulos</span>
+    </a>
+    <a href="#/perfil" class="mn-item" data-screen="perfil">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      <span>Perfil</span>
+    </a>
+  </div>
+</nav>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
 (function () {
@@ -366,6 +404,9 @@ h1,h2,h3,h4{font-family:var(--fd);font-weight:700;line-height:1.04;letter-spacin
     'https://schjqapmixexdfejjyvu.supabase.co',
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNjaGpxYXBtaXhleGRmZWpqeXZ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM1NTkzNjgsImV4cCI6MjA2OTEzNTM2OH0.deNCUFRMk_qHa-utQwOLE3mEb3UNTD2488Ah3d8yfqI'
   );
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
+  }
 })();
 </script>
 <script>
@@ -1330,6 +1371,14 @@ window.LD_saveProgress = async function () {
       window.scrollTo(0, 0);
       if (out.init) out.init();
       A.toggleDrawer && A.toggleDrawer(false);
+      // Update bottom mobile nav active tab
+      const mn = document.getElementById("mobileNav");
+      if (mn) {
+        const cur = name === "modulo" || name === "aula" ? "modulos" : name;
+        mn.querySelectorAll(".mn-item").forEach((a) =>
+          a.classList.toggle("active", a.dataset.screen === cur)
+        );
+      }
     } catch (e) {
       root().innerHTML =
         '<div style="font-family:monospace;color:#ff8088;background:#0A0F1C;padding:28px;min-height:100vh;line-height:1.6">' +
