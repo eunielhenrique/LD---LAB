@@ -1317,15 +1317,11 @@ window.LD_saveProgress = async function () {
       await loadUserData(cbSession);
     }
 
-    // Also listen for SIGNED_IN event (fired when magic link is processed)
+    // Listen for SIGNED_IN (magic link callback) and SIGNED_OUT
     window.SB.auth.onAuthStateChange(async (event, session) => {
       if (event === "SIGNED_IN" && session) {
         await loadUserData(session);
-        if (!location.hash || location.hash === "#/" || location.hash === "#/login") {
-          location.hash = "#/dashboard";
-        } else {
-          render();
-        }
+        location.hash = "#/dashboard";
       }
       if (event === "SIGNED_OUT") {
         window.LD_STUDENT = null;
@@ -1333,6 +1329,11 @@ window.LD_saveProgress = async function () {
         location.hash = "#/login";
       }
     });
+
+    // If URL contains Supabase auth tokens (magic link callback), wait for onAuthStateChange
+    if (location.hash.includes("access_token=")) {
+      return; // loading screen stays; onAuthStateChange above will redirect to dashboard
+    }
 
     const { name } = parse();
     const isProtected = PROTECTED.includes(name);
